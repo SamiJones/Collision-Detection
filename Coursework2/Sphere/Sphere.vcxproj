@@ -85,17 +85,17 @@
     <ClCompile Include="..\src\BlobDemo.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\particle.cpp" />
+    <ClCompile Include="..\src\ParticleCollision.cpp" />
     <ClCompile Include="..\src\pcontacts.cpp" />
     <ClCompile Include="..\src\pworld.cpp" />
-    <ClCompile Include="ParticleCollision.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\app.h" />
     <ClInclude Include="..\include\coreMath.h" />
     <ClInclude Include="..\include\particle.h" />
+    <ClInclude Include="..\include\ParticleCollision.h" />
     <ClInclude Include="..\include\pcontacts.h" />
     <ClInclude Include="..\include\pworld.h" />
-    <ClInclude Include="ParticleCollision.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

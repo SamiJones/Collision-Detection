@@ -33,7 +33,7 @@
     <ClCompile Include="..\src\BlobDemo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ParticleCollision.cpp">
+    <ClCompile Include="..\src\ParticleCollision.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -53,7 +53,7 @@
     <ClInclude Include="..\include\pworld.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ParticleCollision.h">
+    <ClInclude Include="..\include\ParticleCollision.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

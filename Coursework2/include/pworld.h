@@ -35,7 +35,8 @@ protected:
 	/**
 	 * Contact generators.
 	 */
-	ContactGenerators contactGenerators;
+	ContactGenerators platformContactGenerators;
+	ContactGenerators particleContactGenerator;
 
 	/**
 	 * Holds the list of contacts.
@@ -86,7 +87,8 @@ public:
 	/**
 	 * Returns the list of contact generators.
 	 */
-	ContactGenerators& getContactGenerators();
+	ContactGenerators& getPlatformContactGenerators();
+	ContactGenerators& getParticleContactGenerator();
 
 };
 

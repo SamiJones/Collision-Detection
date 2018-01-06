@@ -9,12 +9,19 @@
 #include "pworld.h"
 #include <stdio.h>
 #include <cassert>
+#include "ParticleCollision.h"
+#include <iostream>
+#include <vector>
 
+using namespace std;
 
 const Vector2 Vector2::GRAVITY = Vector2(0, -9.81);
-const int NUM_PARTICLES = 60;
+const int NUM_SPHERES = 20;
+const int NUM_QUADS = 1;
+const int NUM_PARTICLES = NUM_SPHERES + NUM_QUADS;
 const int NUM_PLATFORMS = 3;
 const int BASE_SPHERE_RADIUS = 5;
+const int BASE_MASS = 5;
 
 /**
  * Platforms are two dimensional: lines on which the
@@ -29,23 +36,20 @@ public:
 	/**
 	 * Holds a pointer to the particles we're checking for collisions with.
 	 */
-	Particle *particle[NUM_PARTICLES];
+	Particle* particle[NUM_PARTICLES];
 
 	//default restitution value
 	float restitution = 0.8;
 
 	void setRestitution(float restitution) { this->restitution = restitution; }
 
-	virtual unsigned addContact(
-		ParticleContact *contact,
-		unsigned limit
-		) const;
+	virtual unsigned addContact(ParticleContact *contact, unsigned limit) const;
 };
 
 unsigned Platform::addContact(ParticleContact *contact, unsigned limit) const
 {
 	//const static float restitution = 1.0f;
-	unsigned used = 0;
+	int used = 0;
 
 	for (int i = 0; i < NUM_PARTICLES; i++)
 	{
@@ -115,7 +119,8 @@ unsigned Platform::addContact(ParticleContact *contact, unsigned limit) const
 
 class BlobDemo : public Application
 {
-	Particle *blob[NUM_PARTICLES];
+	Particle* blob;
+	ParticleCollision* particleCollision;
 
 	Platform* platform[NUM_PLATFORMS];
 
@@ -141,14 +146,17 @@ public:
 };
 
 // Method definitions
-BlobDemo::BlobDemo() : world(NUM_PARTICLES + NUM_PLATFORMS, NUM_PLATFORMS)
+BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + NUM_PLATFORMS - 1), NUM_PLATFORMS * 3)
 {
 	width = 400; height = 400;
 	nRange = 100.0;
 
 	// Create the blob storage
-	for (int i = 0; i < NUM_PARTICLES; i++)
-		blob[i] = new Particle;
+	blob = new Particle[NUM_PARTICLES];
+
+	//Create a new particle collision object, and tell it how many other particles there are to watch for collisions with.
+	//Also, give it a pointer to the array of particles, and a pointer to the specific particle it is associated with
+	particleCollision = new ParticleCollision(NUM_PARTICLES, blob);
 
 	// Create the platform
 	platform[0] = new Platform;
@@ -171,37 +179,65 @@ BlobDemo::BlobDemo() : world(NUM_PARTICLES + NUM_PLATFORMS, NUM_PLATFORMS)
 	// Make sure the platform knows which particle it should collide with.
 	for (int i = 0; i < NUM_PLATFORMS; i++)
 		for (int j = 0; j < NUM_PARTICLES; j++)
-			platform[i]->particle[j] = blob[j];
+			platform[i]->particle[j] = blob + j;
 
+	//Add platforms to world object's vector of platform contact generators
 	for (int i = 0; i < NUM_PLATFORMS; i++)
-		world.getContactGenerators().push_back(platform[i]);
+		world.getPlatformContactGenerators().push_back(platform[i]);
 
-	// Create the blob
-	for (int i = 0; i < NUM_PARTICLES; i++)
+	//Add particle collision object to world object's vector of particle contact generators
+	world.getParticleContactGenerator().push_back(particleCollision);
+
+	// Initialise sphere particles
+	for (int i = 0; i < NUM_SPHERES; i++)
 	{
-		blob[i]->setPosition((i%2)?-20:20, 90);
-		blob[i]->setRadius(BASE_SPHERE_RADIUS + (i%10));
-		blob[i]->setVelocity((i%2)?i*3:-i*3, 0);
-		//blob->setDamping(0.9);
-		blob[i]->setDamping(1.0);
-		blob[i]->setAcceleration(Vector2::GRAVITY * 20.0f);
-		blob[i]->setMass(i%10 * 10 + 1);
-		blob[i]->clearAccumulator();
-		world.getParticles().push_back(blob[i]);
+		(blob + i)->setPosition((i % 2) ? -20 : 20, 90);
+		(blob + i)->setRadius(BASE_SPHERE_RADIUS + (i % 10));
+		(blob + i)->setMass(BASE_MASS + (i % 10));
+		(blob + i)->setVelocity(0, -1);
+		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
+		(blob + i)->clearAccumulator();
+
+		world.getParticles().push_back(blob + i);
+	}
+
+	//Initialise non-sphere particles
+	for (int i = NUM_SPHERES; i < NUM_PARTICLES; i++)
+	{
+		(blob + i)->setPosition((i % 2) ? -20 : 20, 90);
+		(blob + i)->setRadius(15);
+		(blob + i)->setMass(15);
+		(blob + i)->setVelocity(0, -1);
+		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
+		(blob + i)->clearAccumulator();
+
+		float radius = (blob + i)->getRadius();
+
+		//Set up vertices for non-sphere particles
+		vector<Vector2> vertices = {
+			Vector2(-radius, 0),
+			Vector2(0, -radius),
+			Vector2(radius, 0),
+			Vector2(0, radius)
+		};
+
+		(blob + NUM_SPHERES)->setVertices(vertices);
+
+		world.getParticles().push_back(blob + i);
 	}
 }
 
 BlobDemo::~BlobDemo()
 {
-	// Create the blob storage
-	for (int i = 0; i < NUM_PARTICLES; i++)
-		delete blob[i];
+	// Release the blob storage
+	delete[] blob;
 }
 
 void BlobDemo::display()
 {
 	Application::display();
 
+	//Render platforms
 	for (int i = 0; i < 3; i++)
 	{
 		const Vector2 &p0 = platform[i]->start;
@@ -213,22 +249,44 @@ void BlobDemo::display()
 		glVertex2f(p1.x, p1.y);
 		glEnd();
 	}
+	//Render platforms
 
+	//Render sphere particles
 	float r = 0.0, g = 0.0, b = 1;
 
-	for (int i = 0; i < NUM_PARTICLES; i++, r += 0.1, g += 0.1)
+	for (int i = 0; i < NUM_SPHERES; i++, r += 0.1, g += 0.1)
 	{
 		if (r > 0.9 && g > 0.9)
 			r = g = 0;
 
 		glColor3f(r, g, b);
 
-		Vector2 &p = blob[i]->getPosition();
+		Vector2 &p = (blob + i)->getPosition();
 		glPushMatrix();
 		glTranslatef(p.x, p.y, 0);
-		glutSolidSphere(blob[i]->getRadius(), 12, 12);
+		glutSolidSphere((blob + i)->getRadius(), 12, 12);
 		glPopMatrix();
 	}
+	//Render sphere particles
+
+	//Render non-sphere particles
+	glColor3f(1, 0, 0);
+
+	vector<Vector2> vertices = (blob + NUM_SPHERES)->getVertices();
+	int numVertices = vertices.size();
+	Vector2 position = (blob + NUM_SPHERES)->getPosition();
+
+	glPushMatrix();
+	glTranslatef(position.x, position.y, 0);
+
+	glBegin(GL_QUADS);
+	for (int i = 0; i < numVertices; i++)
+		glVertex2f(vertices[i].x, vertices[i].y);
+	glEnd();
+
+	glPopMatrix();
+	//Render non-sphere shapes
+	
 	glutSwapBuffers();
 
 }
@@ -238,74 +296,17 @@ void BlobDemo::update()
 	// Recenter the axes
 	float duration = timeinterval / 1000;
 	// Run the simulation
+
 	world.runPhysics(duration);
 
-	//collision detection and resolution
+	//Boundary collision detection and resolution
 	for (int i = 0; i < NUM_PARTICLES; i++)
 	{
-		boxCollisionResolve(blob[i]);
+		boxCollisionResolve(blob + i);
 
-		if (outOfBoxTest(blob[i]))
-			outOfBoxResolve(blob[i]);
-
-		Vector2 pos1 = blob[i]->getPosition();
-		float radius1 = blob[i]->getRadius();
-		Vector2 velocity1 = blob[i]->getVelocity();
-		float mass1 = blob[i]->getMass();
-
-		for (int j = 0 + i; j < NUM_PARTICLES; j++)
-		{
-			Vector2 pos2 = blob[j]->getPosition();
-			Vector2 velocity2 = blob[j]->getVelocity();
-			float radius2 = blob[j]->getRadius();
-			float mass2 = blob[j]->getMass();
-
-			//distance from sphere 2 to sphere 1
-			Vector2 sphereDistanceVec = pos1 - pos2;
-			float distance = sphereDistanceVec.magnitude();
-
-			//if length of sphereDistanceVec <= (radius1 + radius2), then spheres have collided or inter-penetrated
-			if (distance <= radius1 + radius2)
-			{
-				//resolve inter-penetration by moving two spheres apart from each other by the distance they have inter-penetrated
-				float interpenetrationDist = (radius1 + radius2) - distance;
-				Vector2 interpenetrationVec = sphereDistanceVec;
-				
-				interpenetrationVec.normalise();
-				interpenetrationVec *= interpenetrationDist;
-
-				blob[i]->setPosition(blob[i]->getPosition() + interpenetrationVec * 0.5);
-				blob[j]->setPosition(blob[j]->getPosition() - interpenetrationVec * 0.5);
-				//resolve inter-penetration
-
-				//normalise sphereDistanceVec to get the normal of sphere 2 at the point of contact
-				Vector2 normal = sphereDistanceVec;
-				normal.normalise();
-
-				//multiply normal by velocity of sphere 1
-				float x1 = normal * velocity1;
-
-				//find perpendicular components of velocity
-				Vector2 velocity1X = normal * x1;
-				Vector2 velocity1Y = velocity1 - velocity1X;
-
-				//reverse normal
-				normal *= -1;
-
-				//multiply normal by velocity of sphere 2
-				float x2 = normal * velocity2;
-
-				//find perpendicular components of velocity
-				Vector2 velocity2X = normal * x2;
-				Vector2 velocity2Y = velocity2 - velocity2X;
-
-				//based on formula for calculating final velocities of two particles in an elastic collision
-				blob[i]->setVelocity(((velocity1X * (mass1 - mass2)) / (mass1 + mass2) + (velocity2X * (2 * mass2)) / (mass1 + mass2) + velocity1Y) * 0.995);
-				blob[j]->setVelocity(((velocity1X * (2 * mass1)) / (mass1 + mass2) + (velocity2X * (mass2 - mass1)) / (mass1 + mass2) + velocity2Y) * 0.995);
-			}
-		}
+		if (outOfBoxTest(blob + i))
+			outOfBoxResolve(blob + i);
 	}
-	//collision detection and resolution
 
 	Application::update();
 }
