@@ -4,7 +4,12 @@
 
 using namespace std;
 
-unsigned ParticleCollision::addContact(ParticleContact *contact, unsigned limit) const
+ParticleCollision::ParticleCollision(int numParticles, Particle* arrayPtr) : NUM_PARTICLES(numParticles)
+{
+	particles = arrayPtr;
+}
+
+unsigned ParticleCollision::addContact(ParticleContact *contact, unsigned limit)
 {
 	//const static float restitution = 1.0f;
 	unsigned used = 0;
@@ -39,8 +44,23 @@ unsigned ParticleCollision::addContact(ParticleContact *contact, unsigned limit)
 				contact->particle[0] = &particles[i];
 				contact->particle[1] = &particles[j];
 
-				//if (particles[i].isSphere() && particles[j].isSphere())
-				contact->penetration = (radius1 + radius2) - distance;
+				if (particles[i].isSphere() && particles[j].isSphere())
+					contact->penetration = (radius1 + radius2) - distance;
+				else if (!particles[i].isSphere() || !particles[j].isSphere())
+				{
+					float interPenetrationDist = abs(MDBounds.left);
+
+					if (abs(MDBounds.right) < interPenetrationDist)
+						interPenetrationDist = abs(MDBounds.right);
+
+					if (abs(MDBounds.bottom) < interPenetrationDist)
+						interPenetrationDist = abs(MDBounds.bottom);
+
+					if (abs(MDBounds.top) < interPenetrationDist)
+						interPenetrationDist = abs(MDBounds.top);
+						
+					contact->penetration = interPenetrationDist;
+				}
 
 				used++;
 				contact++;
@@ -51,7 +71,7 @@ unsigned ParticleCollision::addContact(ParticleContact *contact, unsigned limit)
 	return used;
 }
 
-bool ParticleCollision::checkCollision(Particle& particle1, Particle& particle2, float distance) const
+bool ParticleCollision::checkCollision(Particle& particle1, Particle& particle2, float distance)
 {
 	//Simple check for collision between two spheres
 	if (particle1.isSphere() && particle2.isSphere())
@@ -65,9 +85,9 @@ bool ParticleCollision::checkCollision(Particle& particle1, Particle& particle2,
 	//One of the shapes is a convex polygon, so check for collision using Minkowski difference
 	else
 	{
-		Boundary MDBounds = calcMinkowskiDifferenceBounds(particle1, particle2);
+		MDBounds = calcMinkowskiDifferenceBounds(particle1, particle2);
 
-		if (MDBounds.bottomLeft.x <= 0 && MDBounds.bottomLeft.y <= 0 && MDBounds.topRight.x >= 0 && MDBounds.topRight.y >= 0)
+		if (MDBounds.left <= 0 && MDBounds.right >= 0 && MDBounds.bottom <= 0 && MDBounds.top >= 0)
 			return true;
 		else
 			return false;
@@ -131,11 +151,8 @@ bool ParticleCollision::checkCollision(Particle& particle1, Particle& particle2,
 //	return boundaryPoints;
 //}
 
-Boundary ParticleCollision::calcMinkowskiDifferenceBounds(Particle& particle1, Particle& particle2) const
+Boundary ParticleCollision::calcMinkowskiDifferenceBounds(Particle& particle1, Particle& particle2)
 {
-	//Far borders of the convex polygon created by the Minkowski difference
-	Boundary boundaryPoints;
-
 	vector<Vector2> particle1Vertices;
 	vector<Vector2> particle2Vertices;
 	vector<Vector2> minkowskiDiffVertices;
@@ -154,33 +171,41 @@ Boundary ParticleCollision::calcMinkowskiDifferenceBounds(Particle& particle1, P
 		for (int j = 0; j < particle2Vertices.size(); j++)
 			minkowskiDiffVertices.push_back((particle1Vertices[i] + particle1.getPosition()) - (particle2Vertices[j] + particle2.getPosition()));
 
-	//These values will be overwritten if vertices with further extremes are found
-	boundaryPoints.bottomLeft = minkowskiDiffVertices[0];
-	boundaryPoints.topRight = minkowskiDiffVertices[0];
+	//These boundary values will be overwritten if vertices with further extremes are found
+	MDBounds.left = minkowskiDiffVertices[0].x;
+	MDBounds.right = minkowskiDiffVertices[0].x;
+	MDBounds.bottom = minkowskiDiffVertices[0].y;
+	MDBounds.top = minkowskiDiffVertices[0].y;
 
 	for (int i = 0; i < minkowskiDiffVertices.size(); i++)
 	{
-		if ((minkowskiDiffVertices[i].x + minkowskiDiffVertices[i].y) < (boundaryPoints.bottomLeft.x + boundaryPoints.bottomLeft.y))
-			boundaryPoints.bottomLeft = minkowskiDiffVertices[i];
-		if ((minkowskiDiffVertices[i].x + minkowskiDiffVertices[i].y) > (boundaryPoints.topRight.x + boundaryPoints.topRight.y))
-			boundaryPoints.topRight = minkowskiDiffVertices[i];
+		if (minkowskiDiffVertices[i].x < MDBounds.left)
+			MDBounds.left = minkowskiDiffVertices[i].x;
+		else if (minkowskiDiffVertices[i].x > MDBounds.right)
+			MDBounds.right = minkowskiDiffVertices[i].x;
+		
+		if (minkowskiDiffVertices[i].y < MDBounds.bottom)
+			MDBounds.bottom = minkowskiDiffVertices[i].y;
+		else if (minkowskiDiffVertices[i].y > MDBounds.top)
+			MDBounds.top = minkowskiDiffVertices[i].y;
 	}
+
 
 	/*glBegin(GL_POLYGON);
 	for (int i = 0; i < minkowskiDiffVertices.size(); i++)
-		glVertex2f(minkowskiDiffVertices[i].x, minkowskiDiffVertices[i].y);
+	glVertex2f(minkowskiDiffVertices[i].x, minkowskiDiffVertices[i].y);
 	glEnd();
 	glutSwapBuffers();*/
 
 	/*glBegin(GL_POLYGON);
-	glVertex2f(boundaryPoints.bottomLeft.x, boundaryPoints.bottomLeft.y);
-	glVertex2f(boundaryPoints.bottomLeft.x, boundaryPoints.topRight.y);
-	glVertex2f(boundaryPoints.topRight.x, boundaryPoints.topRight.y);
-	glVertex2f(boundaryPoints.topRight.x, boundaryPoints.bottomLeft.y);
+	glVertex2f(MDBounds.left, MDBounds.bottom);
+	glVertex2f(MDBounds.right, MDBounds.bottom);
+	glVertex2f(MDBounds.right, MDBounds.top);
+	glVertex2f(MDBounds.left, MDBounds.top);
 	glEnd();
 	glutSwapBuffers();*/
 
-	return boundaryPoints;
+	return MDBounds;
 }
 
 vector<Vector2> ParticleCollision::estimateSphereVertices(Particle& particle) const

@@ -116,7 +116,7 @@ public:
 	 * contact.
 	 */
 	virtual unsigned addContact(ParticleContact *contact,
-		unsigned limit) const = 0;
+		unsigned limit) = 0;
 };
 
 

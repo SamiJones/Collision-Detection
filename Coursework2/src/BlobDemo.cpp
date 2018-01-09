@@ -16,12 +16,12 @@
 using namespace std;
 
 const Vector2 Vector2::GRAVITY = Vector2(0, -9.81);
-const int NUM_SPHERES = 20;
-const int NUM_QUADS = 1;
-const int NUM_PARTICLES = NUM_SPHERES + NUM_QUADS;
-const int NUM_PLATFORMS = 3;
-const int BASE_SPHERE_RADIUS = 5;
-const int BASE_MASS = 5;
+const int NUM_SPHERES = 5; //Number of spheres in simulation
+const int NUM_QUADS = 2; //Number of quads in simulation (these will all be placed after spheres in the particle array)
+const int NUM_PARTICLES = NUM_SPHERES + NUM_QUADS; //Total number of particles of all kinds in simulation
+const int NUM_PLATFORMS = 2; //Number of platforms in simulation
+const int BASE_SPHERE_RADIUS = 5; //Minimum radius of a sphere
+const int BASE_SPHERE_MASS = 5; //Minimum mass of a sphere
 
 /**
  * Platforms are two dimensional: lines on which the
@@ -43,10 +43,10 @@ public:
 
 	void setRestitution(float restitution) { this->restitution = restitution; }
 
-	virtual unsigned addContact(ParticleContact *contact, unsigned limit) const;
+	virtual unsigned addContact(ParticleContact *contact, unsigned limit);
 };
 
-unsigned Platform::addContact(ParticleContact *contact, unsigned limit) const
+unsigned Platform::addContact(ParticleContact *contact, unsigned limit)
 {
 	//const static float restitution = 1.0f;
 	int used = 0;
@@ -61,9 +61,39 @@ unsigned Platform::addContact(ParticleContact *contact, unsigned limit) const
 		float platformSqLength = lineDirection.squareMagnitude();
 		float squareRadius = particle[i]->getRadius()*particle[i]->getRadius();;
 
-		if (projected <= 0)
+		//Calculate whether non-sphere objects have made contact with platform
+		if (!particle[i]->isSphere())
 		{
+			Vector2 pos = particle[i]->getPosition();
+			vector<Vector2> vertices = particle[i]->getVertices();
 
+			//check if particle has an x-coordinate that allows it to touch the platform
+			if (pos.x + particle[i]->getWidth() / 2.0f > start.x && pos.x - particle[i]->getWidth() / 2.0f < end.x)
+			{
+				float slope = (end.y - start.y) / (end.x - start.x);
+				float yIntercept = end.y - slope * end.x;
+				float platformYVal = slope * pos.x + yIntercept;
+
+				float distanceToPlatform = toParticle.squareMagnitude() - projected*projected / platformSqLength;
+
+				//check if the particle is touching the line
+				if (pos.y - particle[i]->getHeight() / 2.0f <= platformYVal && pos.y + particle[i]->getHeight() / 2.0f >= platformYVal)
+				{
+					// We have a collision
+					Vector2 closestPoint = start + lineDirection*(projected / platformSqLength);
+
+					contact->contactNormal = (particle[i]->getPosition() - closestPoint).unit();
+					contact->restitution = restitution;
+					contact->particle[0] = particle[i];
+					contact->particle[1] = 0;
+					contact->penetration = particle[i]->getRadius() - sqrt(distanceToPlatform);
+					used++;
+					contact++;
+				}
+			}
+		}
+		else if (projected <= 0)
+		{
 			// The blob is nearest to the start point
 			if (toParticle.squareMagnitude() < squareRadius)
 			{
@@ -167,14 +197,8 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 	// Set up platform 2
 	platform[1] = new Platform;
 	platform[1]->setRestitution(0.9);
-	platform[1]->start = Vector2(-20.0, -25.0);
-	platform[1]->end = Vector2(80.0, -20.0);
-
-	// Set up platform 3
-	platform[2] = new Platform;
-	platform[2]->setRestitution(0.8);
-	platform[2]->start = Vector2(-80.0, -40.0);
-	platform[2]->end = Vector2(0.0, -60.0);
+	platform[1]->start = Vector2(-20.0, -45.0);
+	platform[1]->end = Vector2(80.0, -40.0);
 
 	// Make sure the platform knows which particle it should collide with.
 	for (int i = 0; i < NUM_PLATFORMS; i++)
@@ -193,7 +217,7 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 	{
 		(blob + i)->setPosition((i % 2) ? -20 : 20, 90);
 		(blob + i)->setRadius(BASE_SPHERE_RADIUS + (i % 10));
-		(blob + i)->setMass(BASE_MASS + (i % 10));
+		(blob + i)->setMass(BASE_SPHERE_MASS + (i % 10));
 		(blob + i)->setVelocity(0, -1);
 		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
 		(blob + i)->clearAccumulator();
@@ -205,9 +229,9 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 	for (int i = NUM_SPHERES; i < NUM_PARTICLES; i++)
 	{
 		(blob + i)->setPosition((i % 2) ? -20 : 20, 90);
-		(blob + i)->setRadius(15);
+		(blob + i)->setRadius(20);
 		(blob + i)->setMass(15);
-		(blob + i)->setVelocity(0, -1);
+		(blob + i)->setVelocity(0, -2);
 		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
 		(blob + i)->clearAccumulator();
 
@@ -215,13 +239,18 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 
 		//Set up vertices for non-sphere particles
 		vector<Vector2> vertices = {
-			Vector2(-radius, 0),
-			Vector2(0, -radius),
-			Vector2(radius, 0),
-			Vector2(0, radius)
+			Vector2(1, 1).unit() * radius,
+			Vector2(1, -1).unit() * radius,
+			Vector2(-1, -1).unit() * radius,
+			Vector2(-1, 1).unit() * radius
 		};
 
-		(blob + NUM_SPHERES)->setVertices(vertices);
+		(blob + i)->setVertices(vertices);
+
+		float width = vertices[0].x - vertices[3].x;
+		float height = vertices[0].y - vertices[1].y;
+
+		(blob + i)->setWidthAndHeight(width, height);
 
 		world.getParticles().push_back(blob + i);
 	}
@@ -238,7 +267,7 @@ void BlobDemo::display()
 	Application::display();
 
 	//Render platforms
-	for (int i = 0; i < 3; i++)
+	for (int i = 0; i < NUM_PLATFORMS; i++)
 	{
 		const Vector2 &p0 = platform[i]->start;
 		const Vector2 &p1 = platform[i]->end;
@@ -270,21 +299,29 @@ void BlobDemo::display()
 	//Render sphere particles
 
 	//Render non-sphere particles
-	glColor3f(1, 0, 0);
+	r = 1, g = 0, b = 0;
 
-	vector<Vector2> vertices = (blob + NUM_SPHERES)->getVertices();
-	int numVertices = vertices.size();
-	Vector2 position = (blob + NUM_SPHERES)->getPosition();
+	for (int i = NUM_SPHERES; i < NUM_PARTICLES; i++, g += 0.2, b += 0.2)
+	{
+		vector<Vector2> vertices = (blob + i)->getVertices();
+		int numVertices = vertices.size();
+		Vector2 position = (blob + i)->getPosition();
 
-	glPushMatrix();
-	glTranslatef(position.x, position.y, 0);
+		glPushMatrix();
+		glTranslatef(position.x, position.y, 0);
 
-	glBegin(GL_QUADS);
-	for (int i = 0; i < numVertices; i++)
-		glVertex2f(vertices[i].x, vertices[i].y);
-	glEnd();
+		if (g > 0.9 && b > 0.9)
+			g = b = 0;
 
-	glPopMatrix();
+		glColor3f(r, g, b);
+
+		glBegin(GL_QUADS);
+		for (int i = 0; i < numVertices; i++)
+			glVertex2f(vertices[i].x, vertices[i].y);
+		glEnd();
+
+		glPopMatrix();
+	}
 	//Render non-sphere shapes
 	
 	glutSwapBuffers();
@@ -321,13 +358,29 @@ void BlobDemo::boxCollisionResolve(Particle* particle)
 	float w = Application::width;
 	float h = Application::height;
 
-	// Reverse direction when you reach left or right edge
-	if (position.x > w - radius || position.x < -w + radius)
-		particle->setVelocity(-velocity.x, velocity.y);
+	if (particle->isSphere())
+	{
+		// Reverse direction when you reach left or right edge
+		if (position.x > w - radius || position.x < -w + radius)
+			particle->setVelocity(-velocity.x, velocity.y);
 
-	// Reverse direction when you reach top or bottom edge
-	if (position.y > h - radius || position.y < -h + radius)
-		particle->setVelocity(velocity.x, -velocity.y);
+		// Reverse direction when you reach top or bottom edge
+		if (position.y > h - radius || position.y < -h + radius)
+			particle->setVelocity(velocity.x, -velocity.y);
+	}
+	else
+	{
+		float particleWidth = particle->getWidth();
+		float particleHeight = particle->getHeight();
+
+		// Reverse direction when you reach left or right edge
+		if (position.x - 0.5f * particleWidth < -w || position.x + 0.5f * particleWidth > w)
+			particle->setVelocity(-velocity.x, velocity.y);
+
+		// Reverse direction when you reach top or bottom edge
+		if (position.y - 0.5f * particleHeight < -h || position.y + 0.5f * particleHeight > h)
+			particle->setVelocity(velocity.x, -velocity.y);
+	}
 }
 
 //  Check bounds. This is in case the window is made
@@ -339,9 +392,20 @@ bool BlobDemo::outOfBoxTest(Particle* particle)
 	Vector2 position = particle->getPosition();
 	Vector2 velocity = particle->getVelocity();
 	float radius = particle->getRadius();
-	if ((position.x > Application::width - radius) || (position.x < -Application::width + radius)) return true;
-	if ((position.y > Application::height - radius) || (position.y < -Application::height + radius)) return true;
 
+	if (particle->isSphere())
+	{
+		if ((position.x > Application::width - radius) || (position.x < -Application::width + radius)) return true;
+		if ((position.y > Application::height - radius) || (position.y < -Application::height + radius)) return true;
+	}
+	else
+	{
+		if (position.x - 0.5f * particle->getWidth() < -Application::width || position.x + 0.5f * particle->getWidth() > Application::width)
+			return true;
+
+		if (position.y - 0.5f * particle->getHeight() < -Application::height || position.y + 0.5f * particle->getHeight() > Application::height)
+			return true;
+	}
 	return false;
 }
 
@@ -355,12 +419,26 @@ void BlobDemo::outOfBoxResolve(Particle* particle)
 	Vector2 velocity = particle->getVelocity();
 	float radius = particle->getRadius();
 
+	if (particle->isSphere())
+	{
+		if (position.x > Application::width - radius)        position.x = Application::width - radius;
+		else if (position.x < -Application::width + radius)  position.x = -Application::width + radius;
 
-	if (position.x > Application::width - radius)        position.x = Application::width - radius;
-	else if (position.x < -Application::width + radius)  position.x = -Application::width + radius;
+		if (position.y > Application::height - radius)        position.y = Application::height - radius;
+		else if (position.y < -Application::height + radius)  position.y = -Application::height + radius;
+	}
+	else
+	{
+		if (position.x - 0.5f * particle->getWidth() < -Application::width)
+			position.x = -Application::width + 0.5f * particle->getWidth();
+		else if (position.x + 0.5f * particle->getWidth() > Application::width)
+			position.x = Application::width - 0.5f * particle->getWidth();
 
-	if (position.y > Application::height - radius)        position.y = Application::height - radius;
-	else if (position.y < -Application::height + radius)  position.y = -Application::height + radius;
+		if (position.y - 0.5f * particle->getHeight() < -Application::height)
+			position.y = -Application::height + 0.5f * particle->getHeight();
+		else if (position.y + 0.5f * particle->getHeight() > Application::height)
+			position.y = Application::height - 0.5f * particle->getHeight();
+	}
 
 	particle->setPosition(position.x, position.y);
 }

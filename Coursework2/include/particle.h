@@ -20,8 +20,10 @@ protected:
 	//True if particle is a sphere, false if it is a convex polygon
 	bool sphere = true;
 
-	//Stores vertices of the particle (unless it is a sphere, in which case no vertices are stored)
+	//Stores vertices, width and height of the particle (unless it is a sphere, in which case no vertices are stored)
 	std::vector<Vector2> vertices;
+	float width;
+	float height;
 
 	Vector2 position;
 	Vector2 velocity;
@@ -41,6 +43,12 @@ public:
 	void setVertices(std::vector<Vector2>& vertices);
 	std::vector<Vector2>& getVertices();
 
+	//Allows shape's width and height to be set and retrieved
+	void setWidthAndHeight(float w, float h);
+	float getWidth();
+	float getHeight();
+
+	//Tells caller whether this particle is a sphere or not
 	bool isSphere();
 
 	void setPosition(const float x, const float y);

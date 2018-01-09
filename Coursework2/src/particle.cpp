@@ -53,6 +53,22 @@ std::vector<Vector2>& Particle::getVertices()
 		return std::vector<Vector2>();
 }
 
+void Particle::setWidthAndHeight(float w, float h)
+{
+	width = w;
+	height = h;
+}
+
+float Particle::getWidth()
+{
+	return width;
+}
+
+float Particle::getHeight()
+{
+	return height;
+}
+
 //Tells the caller if the shape is a sphere or not
 bool Particle::isSphere()
 {
