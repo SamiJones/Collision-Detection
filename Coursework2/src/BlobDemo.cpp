@@ -16,9 +16,9 @@
 using namespace std;
 
 const Vector2 Vector2::GRAVITY = Vector2(0, -9.81);
-const int NUM_SPHERES = 5; //Number of spheres in simulation
-const int NUM_QUADS = 2; //Number of quads in simulation (these will all be placed after spheres in the particle array)
-const int NUM_TRIANGLES = 2; //Number of triangles in simulation (these will all be placed after quads in the particle array)
+const int NUM_SPHERES = 10; //Number of spheres in simulation
+const int NUM_QUADS = 1; //Number of quads in simulation (these will all be placed after spheres in the particle array)
+const int NUM_TRIANGLES = 1; //Number of triangles in simulation (these will all be placed after quads in the particle array)
 const int NUM_PARTICLES = NUM_SPHERES + NUM_QUADS + NUM_TRIANGLES; //Total number of particles of all kinds in simulation
 const int NUM_PLATFORMS = 1;
 const int BASE_SPHERE_RADIUS = 5; //Minimum radius of a sphere
@@ -191,8 +191,8 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 	// Create the platform
 	platform[0] = new Platform;
 	platform[0]->setRestitution(0.6);
-	platform[0]->start = Vector2(-50.0, 20.0);
-	platform[0]->end = Vector2(45.0, 15.0);
+	platform[0]->start = Vector2(-50.0, 10.0);
+	platform[0]->end = Vector2(45.0, 5.0);
 
 	// Make sure the platform knows which particle it should collide with.
 	for (int i = 0; i < NUM_PLATFORMS; i++)
