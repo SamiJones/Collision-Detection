@@ -1,4 +1,3 @@
-
 #include <gl/glut.h>
 #include "app.h"
 
@@ -75,12 +74,3 @@ void Application::resize(int width, int height)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 }
-
-
-
-
-
-
-
-
-

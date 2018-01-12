@@ -6,30 +6,6 @@
 
 using namespace std;
 
-//Used for storing boundary of Minkowski difference
-struct Boundary
-{
-	float left;
-	float right;
-	float bottom;
-	float top;
-
-	Boundary()
-	{
-		left = 0;
-		right = 0;
-		bottom = 0;
-		top = 0;
-	}
-	Boundary(float left, float right, float bottom, float top)
-	{
-		Boundary::left = left;
-		Boundary::right = right;
-		Boundary::bottom = bottom;
-		Boundary::top = top;
-	}
-};
-
 class ParticleCollision : public ParticleContactGenerator
 {
 private:
@@ -44,7 +20,7 @@ private:
 
 	//Far borders of the convex polygon created by the Minkowski difference.
 	//Recalculated for every collision where at least one particle is not a circle.
-	Boundary MDBounds;
+	vector<Vector2> MDVertices;
 
 public:
 	//When instantiating particle collision object, tell it how many other particles there are to collide with
@@ -59,28 +35,13 @@ public:
 	//Determine if one particle and another are touching
 	bool checkCollision(Particle& particle1, Particle& particle2, float distance);
 
-	//Calculate outer boundary of Minkowski difference of two particles and return it in a Boundary struct
-	Boundary calcMinkowskiDifferenceBounds(Particle& particle1, Particle& particle2);
+	//Calculate vertices for Minkowski difference of two particles and return it as a vector of Vector2 objects
+	vector<Vector2> calcMinkowskiDifferenceVertices(Particle& particle1, Particle& particle2);
 
-
-	//Calculates 8 of a sphere-shaped particle's vertices (this gives an imperfect representation of the shape, but
+	//Calculates 8 of a sphere particle's vertices (this gives an imperfect representation of the shape, but
 	//is close enough for our purposes)
 	vector<Vector2> estimateSphereVertices(Particle& particle) const;
-};
 
-//struct Boundary
-//{
-//	Vector2 bottomLeft;
-//	Vector2 topRight;
-//
-//	Boundary()
-//	{
-//		bottomLeft = Vector2(0, 0);
-//		topRight = Vector2(0, 0);
-//	}
-//	Boundary(Vector2 bottomLeft, Vector2 topRight)
-//	{
-//		Boundary::bottomLeft = bottomLeft;
-//		Boundary::topRight = topRight;
-//	}
-//};
+	//Determines whether the origin lies within the bounds of the calculated Minkowski difference
+	bool polygonContainsOrigin(vector<Vector2>& vertices);
+};

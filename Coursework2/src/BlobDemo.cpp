@@ -18,8 +18,9 @@ using namespace std;
 const Vector2 Vector2::GRAVITY = Vector2(0, -9.81);
 const int NUM_SPHERES = 5; //Number of spheres in simulation
 const int NUM_QUADS = 2; //Number of quads in simulation (these will all be placed after spheres in the particle array)
-const int NUM_PARTICLES = NUM_SPHERES + NUM_QUADS; //Total number of particles of all kinds in simulation
-const int NUM_PLATFORMS = 2; //Number of platforms in simulation
+const int NUM_TRIANGLES = 2; //Number of triangles in simulation (these will all be placed after quads in the particle array)
+const int NUM_PARTICLES = NUM_SPHERES + NUM_QUADS + NUM_TRIANGLES; //Total number of particles of all kinds in simulation
+const int NUM_PLATFORMS = 1;
 const int BASE_SPHERE_RADIUS = 5; //Minimum radius of a sphere
 const int BASE_SPHERE_MASS = 5; //Minimum mass of a sphere
 
@@ -48,7 +49,6 @@ public:
 
 unsigned Platform::addContact(ParticleContact *contact, unsigned limit)
 {
-	//const static float restitution = 1.0f;
 	int used = 0;
 
 	for (int i = 0; i < NUM_PARTICLES; i++)
@@ -86,7 +86,7 @@ unsigned Platform::addContact(ParticleContact *contact, unsigned limit)
 					contact->restitution = restitution;
 					contact->particle[0] = particle[i];
 					contact->particle[1] = 0;
-					contact->penetration = particle[i]->getRadius() - sqrt(distanceToPlatform);
+					contact->penetration = particle[i]->getHeight() * 0.5f - (pos.y - platformYVal);//particle[i]->getRadius() - sqrt(distanceToPlatform);
 					used++;
 					contact++;
 				}
@@ -176,7 +176,7 @@ public:
 };
 
 // Method definitions
-BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + NUM_PLATFORMS - 1), NUM_PLATFORMS * 3)
+BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + NUM_PLATFORMS - 1), NUM_PLATFORMS * 5)
 {
 	width = 400; height = 400;
 	nRange = 100.0;
@@ -192,13 +192,7 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 	platform[0] = new Platform;
 	platform[0]->setRestitution(0.6);
 	platform[0]->start = Vector2(-50.0, 20.0);
-	platform[0]->end = Vector2(35.0, 15.0);
-
-	// Set up platform 2
-	platform[1] = new Platform;
-	platform[1]->setRestitution(0.9);
-	platform[1]->start = Vector2(-20.0, -45.0);
-	platform[1]->end = Vector2(80.0, -40.0);
+	platform[0]->end = Vector2(45.0, 15.0);
 
 	// Make sure the platform knows which particle it should collide with.
 	for (int i = 0; i < NUM_PLATFORMS; i++)
@@ -215,23 +209,23 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 	// Initialise sphere particles
 	for (int i = 0; i < NUM_SPHERES; i++)
 	{
-		(blob + i)->setPosition((i % 2) ? -20 : 20, 90);
+		(blob + i)->setPosition(i * 10, 80);
 		(blob + i)->setRadius(BASE_SPHERE_RADIUS + (i % 10));
 		(blob + i)->setMass(BASE_SPHERE_MASS + (i % 10));
-		(blob + i)->setVelocity(0, -1);
+		(blob + i)->setVelocity(10, -1);
 		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
 		(blob + i)->clearAccumulator();
 
 		world.getParticles().push_back(blob + i);
 	}
 
-	//Initialise non-sphere particles
-	for (int i = NUM_SPHERES; i < NUM_PARTICLES; i++)
+	//Initialise quad particles
+	for (int i = NUM_SPHERES; i < NUM_SPHERES + NUM_QUADS; i++)
 	{
-		(blob + i)->setPosition((i % 2) ? -20 : 20, 90);
+		(blob + i)->setPosition(i * 10, 80);
 		(blob + i)->setRadius(20);
-		(blob + i)->setMass(15);
-		(blob + i)->setVelocity(0, -2);
+		(blob + i)->setMass(20);
+		(blob + i)->setVelocity(-10, -2);
 		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
 		(blob + i)->clearAccumulator();
 
@@ -248,6 +242,35 @@ BlobDemo::BlobDemo() : world((NUM_PARTICLES + NUM_PLATFORMS) * (NUM_PARTICLES + 
 		(blob + i)->setVertices(vertices);
 
 		float width = vertices[0].x - vertices[3].x;
+		float height = vertices[0].y - vertices[1].y;
+
+		(blob + i)->setWidthAndHeight(width, height);
+
+		world.getParticles().push_back(blob + i);
+	}
+
+	//Initialise triangle particles
+	for (int i = NUM_SPHERES + NUM_QUADS; i < NUM_PARTICLES; i++)
+	{
+		(blob + i)->setPosition(i * 10, 80);
+		(blob + i)->setRadius(20);
+		(blob + i)->setMass(15);
+		(blob + i)->setVelocity(0, -2);
+		(blob + i)->setAcceleration(Vector2::GRAVITY * 20.0f);
+		(blob + i)->clearAccumulator();
+
+		float radius = (blob + i)->getRadius();
+
+		//Set up vertices for non-sphere particles
+		vector<Vector2> vertices = {
+			Vector2(0, 1).unit() * radius,
+			Vector2(1.1, -0.9).unit() * radius,
+			Vector2(-1.1, -0.9).unit() * radius
+		};
+
+		(blob + i)->setVertices(vertices);
+
+		float width = vertices[1].x - vertices[2].x;
 		float height = vertices[0].y - vertices[1].y;
 
 		(blob + i)->setWidthAndHeight(width, height);
@@ -298,10 +321,10 @@ void BlobDemo::display()
 	}
 	//Render sphere particles
 
-	//Render non-sphere particles
+	//Render quads
 	r = 1, g = 0, b = 0;
 
-	for (int i = NUM_SPHERES; i < NUM_PARTICLES; i++, g += 0.2, b += 0.2)
+	for (int i = NUM_SPHERES; i < NUM_SPHERES + NUM_QUADS; i++, g += 0.2, b += 0.2)
 	{
 		vector<Vector2> vertices = (blob + i)->getVertices();
 		int numVertices = vertices.size();
@@ -322,10 +345,35 @@ void BlobDemo::display()
 
 		glPopMatrix();
 	}
-	//Render non-sphere shapes
-	
-	glutSwapBuffers();
+	//Render quads
 
+	//Render triangles
+	r = 0, g = 1, b = 0;
+
+	for (int i = NUM_SPHERES + NUM_QUADS; i < NUM_PARTICLES; i++, r += 0.2, b += 0.2)
+	{
+		vector<Vector2> vertices = (blob + i)->getVertices();
+		int numVertices = vertices.size();
+		Vector2 position = (blob + i)->getPosition();
+
+		glPushMatrix();
+		glTranslatef(position.x, position.y, 0);
+
+		if (r > 0.9 && b > 0.9)
+			r = b = 0;
+
+		glColor3f(r, g, b);
+
+		glBegin(GL_TRIANGLES);
+		for (int i = 0; i < numVertices; i++)
+			glVertex2f(vertices[i].x, vertices[i].y);
+		glEnd();
+
+		glPopMatrix();
+	}
+	//Render triangles
+
+	glutSwapBuffers();
 }
 
 void BlobDemo::update()

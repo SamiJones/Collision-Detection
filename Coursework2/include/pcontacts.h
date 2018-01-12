@@ -119,6 +119,4 @@ public:
 		unsigned limit) = 0;
 };
 
-
-
 #endif // CONTACTS_H

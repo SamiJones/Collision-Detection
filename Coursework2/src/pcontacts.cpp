@@ -1,7 +1,5 @@
-
 #include <float.h>
 #include <pcontacts.h>
-
 
 // Contact implementation
 void ParticleContact::resolve(float duration)
@@ -22,7 +20,7 @@ void ParticleContact::resolveVelocity(float duration)
 	float separatingVelocity = calculateSeparatingVelocity();
 
 	// Check if it needs to be resolved
-	if (separatingVelocity > 0)
+	if (separatingVelocity > 0.05)
 	{
 		// The contact is either separating, or stationary - there's
 		// no impulse required.

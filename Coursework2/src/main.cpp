@@ -1,15 +1,13 @@
 #include <gl/glut.h>
-
 #include "app.h"
+
 extern Application* getApplication();
 Application* app;
-
 
 void display(void)
 {
 	app->display();
 }
-
 
 void createWindow(const char* title, int h, int w)
 {
@@ -24,7 +22,6 @@ void TimerFunc(int value)
 	float  timeinterval = app->getTimeinterval();
 	glutTimerFunc(timeinterval, TimerFunc, 1);
 }
-
 
 void resize(int width, int height)
 {
